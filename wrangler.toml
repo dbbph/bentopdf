@@ -14,7 +14,7 @@ directory = "./dist"
 
 # Environment variables (optional)
 [vars]
-ENVIRONMENT = "production"
+#ENVIRONMENT = "production"
 SIMPLE_MODE = "true"
 
 # Custom domains (configure after deployment)
