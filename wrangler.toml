@@ -1,0 +1,35 @@
+# Cloudflare Workers configuration for BentoPDF
+name = "bentopdf"
+main = "src/worker.js"
+compatibility_date = "2024-12-04"
+
+# Account ID - Replace with your Cloudflare account ID
+# You can find this in your Cloudflare dashboard
+account_id = "b9b89660886e60e1ff88ce6b676209a0"
+
+# Static assets configuration (using experimental assets)
+# This creates the env.ASSETS binding that the worker uses
+[assets]
+directory = "./dist"
+
+# Environment variables (optional)
+[vars]
+ENVIRONMENT = "production"
+SIMPLE_MODE = "true"
+
+# Custom domains (configure after deployment)
+# routes = [
+#   { pattern = "bentopdf.com", zone_name = "bentopdf.com" }
+# ]
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# Development configuration
+[env.development]
+name = "bentopdf-dev"
+
+# Production configuration
+[env.production]
+name = "bentopdf"
