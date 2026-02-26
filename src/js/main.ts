@@ -15,6 +15,7 @@ import {
   createLanguageSwitcher,
   t,
 } from './i18n/index.js';
+declare const __BRAND_NAME__: string;
 
 const init = async () => {
   await initI18n();
@@ -81,18 +82,19 @@ const init = async () => {
         (divider as HTMLElement).style.display = 'none';
       });
 
-      document.title = 'BentoPDF - PDF Tools';
+      const brandName = __BRAND_NAME__ || 'BentoPDF';
+      document.title = `${brandName} - ${t('simpleMode.title')}`;
 
       const toolsHeader = document.getElementById('tools-header');
       if (toolsHeader) {
         const title = toolsHeader.querySelector('h2');
         const subtitle = toolsHeader.querySelector('p');
         if (title) {
-          title.textContent = 'PDF Tools';
+          title.textContent = t('simpleMode.title');
           title.className = 'text-4xl md:text-5xl font-bold text-white mb-3';
         }
         if (subtitle) {
-          subtitle.textContent = 'Select a tool to get started';
+          subtitle.textContent = t('simpleMode.subtitle');
           subtitle.className = 'text-lg text-gray-400';
         }
       }
@@ -253,19 +255,78 @@ const init = async () => {
   if (dom.toolGrid) {
     dom.toolGrid.textContent = '';
 
+    let collapsedCategories: string[] = [];
+    try {
+      const stored = localStorage.getItem('collapsedCategories');
+      if (stored) collapsedCategories = JSON.parse(stored);
+    } catch {
+      localStorage.removeItem('collapsedCategories');
+    }
+
+    function saveCollapsedCategories() {
+      localStorage.setItem(
+        'collapsedCategories',
+        JSON.stringify(collapsedCategories)
+      );
+    }
+
     categories.forEach((category) => {
       const categoryGroup = document.createElement('div');
       categoryGroup.className = 'category-group col-span-full';
 
-      const title = document.createElement('h2');
-      title.className =
-        'text-xl font-bold text-indigo-400 mb-4 mt-8 first:mt-0 text-white';
+      const header = document.createElement('button');
+      header.className = 'category-header';
+      header.type = 'button';
+
+      const title = document.createElement('span');
       const categoryKey = categoryTranslationKeys[category.name];
       title.textContent = categoryKey ? t(categoryKey) : category.name;
 
+      const chevron = document.createElement('i');
+      chevron.setAttribute('data-lucide', 'chevron-down');
+      chevron.className =
+        'category-chevron w-5 h-5 text-gray-400 transition-transform duration-300';
+
+      header.append(title, chevron);
+
       const toolsContainer = document.createElement('div');
       toolsContainer.className =
-        'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6';
+        'category-tools grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6';
+
+      const isCollapsed = collapsedCategories.includes(category.name);
+      if (isCollapsed) {
+        categoryGroup.classList.add('collapsed');
+        toolsContainer.style.maxHeight = '0px';
+      }
+
+      toolsContainer.addEventListener('transitionend', (e) => {
+        if ((e as TransitionEvent).propertyName !== 'max-height') return;
+        if (!categoryGroup.classList.contains('collapsed')) {
+          toolsContainer.style.maxHeight = 'none';
+          toolsContainer.style.overflow = 'visible';
+        }
+      });
+
+      header.addEventListener('click', () => {
+        const collapsed = categoryGroup.classList.toggle('collapsed');
+        if (collapsed) {
+          toolsContainer.style.maxHeight = toolsContainer.scrollHeight + 'px';
+          toolsContainer.style.overflow = 'hidden';
+          requestAnimationFrame(() => {
+            toolsContainer.style.maxHeight = '0px';
+          });
+          if (!collapsedCategories.includes(category.name)) {
+            collapsedCategories.push(category.name);
+          }
+        } else {
+          toolsContainer.style.overflow = 'hidden';
+          toolsContainer.style.maxHeight = toolsContainer.scrollHeight + 'px';
+          collapsedCategories = collapsedCategories.filter(
+            (n) => n !== category.name
+          );
+        }
+        saveCollapsedCategories();
+      });
 
       category.tools.forEach((tool) => {
         let toolCard: HTMLDivElement | HTMLAnchorElement;
@@ -310,8 +371,13 @@ const init = async () => {
         toolsContainer.appendChild(toolCard);
       });
 
-      categoryGroup.append(title, toolsContainer);
+      categoryGroup.append(header, toolsContainer);
       dom.toolGrid.appendChild(categoryGroup);
+
+      if (!isCollapsed) {
+        toolsContainer.style.maxHeight = 'none';
+        toolsContainer.style.overflow = 'visible';
+      }
     });
 
     const searchBar = document.getElementById('search-bar');
@@ -542,6 +608,35 @@ const init = async () => {
       const enabled = (e.target as HTMLInputElement).checked;
       localStorage.setItem('fullWidthMode', enabled.toString());
       applyFullWidthMode(enabled);
+    });
+  }
+
+  const compactModeToggle = document.getElementById(
+    'compact-mode-toggle'
+  ) as HTMLInputElement;
+
+  const savedCompactMode = localStorage.getItem('compactMode') === 'true';
+  if (compactModeToggle) {
+    compactModeToggle.checked = savedCompactMode;
+  }
+  applyCompactMode(savedCompactMode);
+
+  function applyCompactMode(enabled: boolean) {
+    if (dom.toolGrid) {
+      dom.toolGrid.classList.toggle('compact-mode', enabled);
+      dom.toolGrid
+        .querySelectorAll('.category-group:not(.collapsed) .category-tools')
+        .forEach((container) => {
+          (container as HTMLElement).style.maxHeight = 'none';
+        });
+    }
+  }
+
+  if (compactModeToggle) {
+    compactModeToggle.addEventListener('change', (e) => {
+      const enabled = (e.target as HTMLInputElement).checked;
+      localStorage.setItem('compactMode', enabled.toString());
+      applyCompactMode(enabled);
     });
   }
 
@@ -805,8 +900,12 @@ const init = async () => {
         left.className = 'flex items-center gap-3';
 
         const icon = document.createElement('i');
-        icon.className = 'w-5 h-5 text-indigo-400';
-        icon.setAttribute('data-lucide', tool.icon);
+        if (tool.icon.startsWith('ph-')) {
+          icon.className = `ph ${tool.icon} w-5 h-5 text-indigo-400`;
+        } else {
+          icon.className = 'w-5 h-5 text-indigo-400';
+          icon.setAttribute('data-lucide', tool.icon);
+        }
 
         const name = document.createElement('span');
         name.className = 'text-gray-200 font-medium';

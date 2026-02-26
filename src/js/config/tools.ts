@@ -4,6 +4,13 @@ export const categories = [
     name: 'Popular Tools',
     tools: [
       {
+        href: import.meta.env.BASE_URL + 'pdf-workflow.html',
+        name: 'PDF Workflow Builder',
+        icon: 'ph-tree-structure',
+        subtitle:
+          'Build custom PDF processing pipelines with a visual node editor.',
+      },
+      {
         href: import.meta.env.BASE_URL + 'pdf-multi-tool.html',
         name: 'PDF Multi Tool',
         icon: 'ph-pencil-ruler',
@@ -100,6 +107,12 @@ export const categories = [
         name: 'Page Numbers',
         icon: 'ph-list-numbers',
         subtitle: 'Insert page numbers into your document.',
+      },
+      {
+        href: import.meta.env.BASE_URL + 'bates-numbering.html',
+        name: 'Bates Numbering',
+        icon: 'ph-hash',
+        subtitle: 'Add sequential Bates numbers across one or more PDF files.',
       },
       {
         href: import.meta.env.BASE_URL + 'add-watermark.html',

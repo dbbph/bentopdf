@@ -38,6 +38,7 @@
   - [Docker Compose / Podman Compose](#-run-with-docker-compose--podman-compose-recommended)
   - [Podman Quadlet](#-podman-quadlet-systemd-integration)
   - [Simple Mode](#-simple-mode-for-internal-use)
+  - [Custom Branding](#-custom-branding)
   - [WASM Configuration](#wasm-configuration)
   - [Air-Gapped / Offline Deployment](#air-gapped--offline-deployment)
   - [Security Features](#-security-features)
@@ -174,6 +175,7 @@ BentoPDF offers a comprehensive suite of tools to handle all your PDF needs.
 | **Create Fillable Forms** | Create professional fillable PDF forms with text fields, checkboxes, dropdowns, radio buttons, signatures, and more. Fully compliant with PDF standards for compatibility with all PDF viewers. |
 | **PDF Form Filler**       | Fill in forms directly in the browser. Also supports XFA forms.                                                                                                                                 |
 | **Add Page Numbers**      | Easily add page numbers with customizable formatting.                                                                                                                                           |
+| **Bates Numbering**       | Add sequential Bates numbers across one or more PDF files.                                                                                                                                      |
 | **Add Watermark**         | Add text or image watermarks to protect your documents.                                                                                                                                         |
 | **Header & Footer**       | Add customizable headers and footers.                                                                                                                                                           |
 | **Crop PDF**              | Crop specific pages or the entire document.                                                                                                                                                     |
@@ -189,6 +191,14 @@ BentoPDF offers a comprehensive suite of tools to handle all your PDF needs.
 | **Add Stamps**            | Add image stamps to your PDF using the annotation toolbar.                                                                                                                                      |
 | **Table of Contents**     | Generate a table of contents page from PDF bookmarks.                                                                                                                                           |
 | **Redact Content**        | Permanently remove sensitive content from your PDFs.                                                                                                                                            |
+| **Scanner Effect**        | Make your PDF look like a scanned document.                                                                                                                                                     |
+| **Adjust Colors**         | Fine-tune brightness, contrast, saturation and more.                                                                                                                                            |
+
+### Automate
+
+| Tool Name                | Description                                                      |
+| :----------------------- | :--------------------------------------------------------------- |
+| **PDF Workflow Builder** | Build custom PDF processing pipelines with a visual node editor. |
 
 ### Convert to PDF
 
@@ -472,7 +482,69 @@ Users can also override these defaults per-browser via **Advanced Settings** in 
 
 <h3 id="air-gapped--offline-deployment">🔒 Air-Gapped / Offline Deployment</h3>
 
-For networks with no internet access (government, healthcare, financial, etc.), you need to prepare everything on a machine **with** internet, then transfer it into the isolated network.
+For networks with no internet access (government, healthcare, financial, etc.), you need to prepare everything on a machine **with** internet, then transfer the bundle into the isolated network.
+
+#### Automated Script (Recommended)
+
+The included `prepare-airgap.sh` script automates the entire process — downloading WASM packages, building the Docker image, exporting everything into a self-contained bundle with a setup script.
+
+```bash
+git clone https://github.com/alam00000/bentopdf.git
+cd bentopdf
+
+# Interactive mode — prompts for all options
+bash scripts/prepare-airgap.sh
+
+# Or fully automated
+bash scripts/prepare-airgap.sh --wasm-base-url https://internal.example.com/wasm
+```
+
+This produces a bundle directory containing:
+
+```
+bentopdf-airgap-bundle/
+  bentopdf.tar              # Docker image
+  *.tgz                     # WASM packages (PyMuPDF, Ghostscript, CoherentPDF)
+  setup.sh                  # Setup script for the air-gapped side
+  README.md                 # Instructions
+```
+
+**Transfer the bundle** into the air-gapped network via USB, internal artifact repo, or approved method. Then run the included setup script:
+
+```bash
+cd bentopdf-airgap-bundle
+bash setup.sh
+```
+
+The setup script loads the Docker image, extracts WASM files, and optionally starts the container.
+
+<details>
+<summary><strong>Script options</strong></summary>
+
+| Flag                    | Description                                      | Default                           |
+| ----------------------- | ------------------------------------------------ | --------------------------------- |
+| `--wasm-base-url <url>` | Where WASMs will be hosted internally            | _(required, prompted if missing)_ |
+| `--image-name <name>`   | Docker image tag                                 | `bentopdf`                        |
+| `--output-dir <path>`   | Output bundle directory                          | `./bentopdf-airgap-bundle`        |
+| `--simple-mode`         | Enable Simple Mode                               | off                               |
+| `--base-url <path>`     | Subdirectory base URL (e.g. `/pdf/`)             | `/`                               |
+| `--language <code>`     | Default UI language (e.g. `fr`, `de`)            | _(none)_                          |
+| `--brand-name <name>`   | Custom brand name                                | _(none)_                          |
+| `--brand-logo <path>`   | Logo path relative to `public/`                  | _(none)_                          |
+| `--footer-text <text>`  | Custom footer text                               | _(none)_                          |
+| `--dockerfile <path>`   | Dockerfile to use                                | `Dockerfile`                      |
+| `--skip-docker`         | Skip Docker build and export                     | off                               |
+| `--skip-wasm`           | Skip WASM download (reuse existing `.tgz` files) | off                               |
+
+</details>
+
+> [!IMPORTANT]
+> WASM files must be served from the **same origin** as the BentoPDF app. Web Workers use `importScripts()` which cannot load scripts cross-origin. For example, if BentoPDF runs at `https://internal.example.com`, the WASM base URL should also be `https://internal.example.com/wasm`.
+
+#### Manual Steps
+
+<details>
+<summary>If you prefer to do it manually without the script</summary>
 
 **Step 1: Download the WASM packages** (on a machine with internet)
 
@@ -482,14 +554,9 @@ npm pack @bentopdf/gs-wasm
 npm pack coherentpdf
 ```
 
-This creates three `.tgz` files in your current directory.
-
-**Step 2: Build the Docker image with internal URLs** (on a machine with internet)
-
-Point the WASM URLs to where you'll host the files inside the air-gapped network:
+**Step 2: Build the Docker image with internal URLs**
 
 ```bash
-# Clone and build
 git clone https://github.com/alam00000/bentopdf.git
 cd bentopdf
 
@@ -522,19 +589,18 @@ Copy these files via USB drive, internal artifact repository, or approved transf
 docker load -i bentopdf.tar
 
 # Extract the WASM packages
-mkdir -p /var/www/wasm/pymupdf /var/www/wasm/gs /var/www/wasm/cpdf
-tar xzf bentopdf-pymupdf-wasm-0.11.14.tgz -C /var/www/wasm/pymupdf --strip-components=1
-tar xzf bentopdf-gs-wasm-*.tgz -C /var/www/wasm/gs --strip-components=1
-tar xzf coherentpdf-*.tgz -C /var/www/wasm/cpdf --strip-components=1
-
-# Serve the WASM files on your internal web server (e.g., nginx, Apache)
-# Make sure they're accessible at the URLs you configured in Step 2
+mkdir -p ./wasm/pymupdf ./wasm/gs ./wasm/cpdf
+tar xzf bentopdf-pymupdf-wasm-0.11.14.tgz -C ./wasm/pymupdf --strip-components=1
+tar xzf bentopdf-gs-wasm-*.tgz -C ./wasm/gs --strip-components=1
+tar xzf coherentpdf-*.tgz -C ./wasm/cpdf --strip-components=1
 
 # Run BentoPDF
 docker run -d -p 3000:8080 --restart unless-stopped bentopdf
 ```
 
-Users open their browser, access BentoPDF on the internal network, and the browser fetches WASM files from the internal server. No internet required at any point.
+Make sure the WASM files are accessible at the URLs you configured in Step 2.
+
+</details>
 
 > [!NOTE]
 > If you're building from source instead of Docker, set the variables in `.env.production` before running `npm run build`:
@@ -582,6 +648,14 @@ docker build --build-arg BASE_URL=/bentopdf/ -t bentopdf .
 docker run -p 3000:8080 bentopdf
 
 # The app will be accessible at http://localhost:3000/bentopdf/
+```
+
+**Default Language:**
+
+Set the default UI language at build time. Users can still switch languages — this only changes the initial default. Supported: `en`, `ar`, `be`, `fr`, `de`, `es`, `zh`, `zh-TW`, `vi`, `tr`, `id`, `it`, `pt`, `nl`, `da`.
+
+```bash
+docker build --build-arg VITE_DEFAULT_LANGUAGE=fr -t bentopdf .
 ```
 
 **Combined with Simple Mode:**
@@ -676,6 +750,42 @@ For organizations that want a clean, distraction-free interface focused solely o
 
 For more details, see [SIMPLE_MODE.md](SIMPLE_MODE.md).
 
+### 🎨 Custom Branding
+
+Replace the default BentoPDF logo, name, and footer text with your own. Branding is configured via environment variables at **build time** and works across all deployment methods (Docker, static hosting, air-gapped VMs).
+
+| Variable           | Description                             | Default                                 |
+| ------------------ | --------------------------------------- | --------------------------------------- |
+| `VITE_BRAND_NAME`  | Brand name shown in header and footer   | `BentoPDF`                              |
+| `VITE_BRAND_LOGO`  | Path to logo file relative to `public/` | `images/favicon-no-bg.svg`              |
+| `VITE_FOOTER_TEXT` | Custom footer/copyright text            | `© 2026 BentoPDF. All rights reserved.` |
+
+**Docker:**
+
+```bash
+docker build \
+  --build-arg VITE_BRAND_NAME="AcmePDF" \
+  --build-arg VITE_BRAND_LOGO="images/acme-logo.svg" \
+  --build-arg VITE_FOOTER_TEXT="© 2026 Acme Corp. Internal use only." \
+  -t acmepdf .
+```
+
+**Building from source:**
+
+Place your logo in the `public/` folder, then build:
+
+```bash
+VITE_BRAND_NAME="AcmePDF" \
+VITE_BRAND_LOGO="images/acme-logo.svg" \
+VITE_FOOTER_TEXT="© 2026 Acme Corp. Internal use only." \
+npm run build
+```
+
+Or set the values in `.env.production` before building.
+
+> [!TIP]
+> Branding works in both full mode and Simple Mode. You can combine it with other build-time options like `SIMPLE_MODE`, `BASE_URL`, and `VITE_DEFAULT_LANGUAGE`.
+
 ### 🔒 Security Features
 
 BentoPDF runs as a non-root user using nginx-unprivileged for enhanced security:
@@ -691,11 +801,31 @@ docker build -t bentopdf .
 docker run -p 8080:8080 bentopdf
 ```
 
+#### Custom User ID (PUID/PGID)
+
+For environments that require running as a specific non-root user (e.g., NAS devices, Kubernetes with security contexts), use the non-root Dockerfile:
+
+```bash
+# Build the non-root image
+docker build -f Dockerfile.nonroot -t bentopdf-nonroot .
+
+# Run with custom UID/GID
+docker run -d -p 3000:8080 -e PUID=1000 -e PGID=1000 bentopdf-nonroot
+```
+
+| Variable | Description        | Default |
+| -------- | ------------------ | ------- |
+| `PUID`   | User ID to run as  | `1000`  |
+| `PGID`   | Group ID to run as | `1000`  |
+
+> [!NOTE]
+> The standard `Dockerfile` uses `nginx-unprivileged` (UID 101) and is recommended for most deployments. Use `Dockerfile.nonroot` only when you need a specific UID/GID.
+
 For detailed security configuration, see [SECURITY.md](SECURITY.md).
 
 ### Digital Signature CORS Proxy (Required)
 
-The **Digital Signature** tool uses a signing library that may need to fetch certificate chain data from certificate authority provider. Since many certificate servers don't include CORS headers, a proxy is required for this feature to work in the browser.
+The **Digital Signature** tool uses a signing library that may need to fetch certificate chain data from certificate authority providers. Since many certificate servers don't include CORS headers (and often serve over HTTP, which is blocked by browsers on HTTPS sites), a proxy is required for this feature to work.
 
 **When is the proxy needed?**
 
@@ -717,30 +847,48 @@ The **Digital Signature** tool uses a signing library that may need to fetch cer
    npx wrangler login
    ```
 
-3. **Deploy the worker:**
+3. **Update allowed origins** — open `cors-proxy-worker.js` and change `ALLOWED_ORIGINS` to your domain:
+
+   ```js
+   const ALLOWED_ORIGINS = [
+     'https://your-domain.com',
+     'https://www.your-domain.com',
+   ];
+   ```
+
+   > [!IMPORTANT]
+   > Without this step, the proxy will reject all requests from your site with a 403 error. The default only allows `bentopdf.com`.
+
+4. **Deploy the worker:**
 
    ```bash
    npx wrangler deploy
    ```
 
-4. **Note your worker URL** (e.g., `https://bentopdf-cors-proxy.your-subdomain.workers.dev`)
+5. **Note your worker URL** (e.g., `https://bentopdf-cors-proxy.your-subdomain.workers.dev`)
 
-5. **Set the environment variable when building:**
+6. **Set the environment variable when building:**
    ```bash
    VITE_CORS_PROXY_URL=https://your-worker-url.workers.dev npm run build
+   ```
+   Or with Docker:
+   ```bash
+   docker build --build-arg VITE_CORS_PROXY_URL="https://your-worker-url.workers.dev" -t your-bentopdf .
    ```
 
 #### Production Security Features
 
 The CORS proxy includes several security measures:
 
-| Feature                 | Description                                                               |
-| ----------------------- | ------------------------------------------------------------------------- |
-| **URL Restrictions**    | Only allows certificate URLs (`.crt`, `.cer`, `.pem`, `/certs/`, `/ocsp`) |
-| **Private IP Blocking** | Blocks requests to localhost, 10.x, 192.168.x, 172.16-31.x                |
-| **File Size Limit**     | Rejects files larger than 10MB                                            |
-| **Rate Limiting**       | 60 requests per IP per minute (requires KV)                               |
-| **HMAC Signatures**     | Optional client-side signing (limited protection)                         |
+| Feature                 | Description                                                                            |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| **Origin Validation**   | Only allows requests from domains listed in `ALLOWED_ORIGINS`                          |
+| **URL Restrictions**    | Only allows certificate URLs (`.crt`, `.cer`, `.pem`, `/certs/`, `/ocsp`, `/crl`)      |
+| **Private IP Blocking** | Blocks IPv4/IPv6 private ranges, link-local, loopback, decimal IPs, and cloud metadata |
+| **Content-Type Safety** | Only returns safe certificate MIME types, blocks upstream content-type injection       |
+| **File Size Limit**     | Streams response with 10MB limit, aborts mid-download if exceeded                      |
+| **Rate Limiting**       | 60 requests per IP per minute (requires KV)                                            |
+| **HMAC Signatures**     | Optional client-side signing (deters casual abuse)                                     |
 
 #### Enabling Rate Limiting (Recommended)
 

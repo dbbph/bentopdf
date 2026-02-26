@@ -1,27 +1,22 @@
 {{- if .Values.httpRoute.enabled -}}
-{{- $fullName := include "chart.fullname" . -}}
-{{- $svcPort := .Values.service.port -}}
-{{- $defaultGatewayName := (default $fullName .Values.gateway.name) -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: {{ $fullName }}
+  name: {{ include "bentopdf.name" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
+    {{- include "bentopdf.labels" . | nindent 4 }}
   {{- with .Values.httpRoute.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   parentRefs:
+    {{- if .Values.httpRoute.parentRefs }}
     {{- range $ref := .Values.httpRoute.parentRefs }}
-    - name: {{ default $defaultGatewayName $ref.name | quote }}
-      {{- with $ref.sectionName }}
-      sectionName: {{ . | quote }}
-      {{- end }}
-      {{- with $ref.namespace }}
-      namespace: {{ . | quote }}
-      {{- end }}
+    - name: {{ $.Values.gateway.name | default $ref.name | quote }}
+      namespace: {{ $ref.namespace | default (default $.Release.Namespace $.Values.gateway.namespace) | quote }}
+      sectionName: {{ $ref.sectionName | default "http" | quote }}
       {{- with $ref.kind }}
       kind: {{ . | quote }}
       {{- end }}
@@ -29,23 +24,29 @@ spec:
       group: {{ . | quote }}
       {{- end }}
     {{- end }}
+    {{- else }}
+    # Default parentRef when parentRefs is empty or not set
+    - name: {{ .Values.gateway.name | default (printf "%s-gateway" (include "bentopdf.name" $)) | quote }}
+      namespace: {{ .Values.gateway.namespace | default .Release.Namespace | quote }}
+      sectionName: "http"
+    {{- end }}
   {{- with .Values.httpRoute.hostnames }}
   hostnames:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
     {{- range .Values.httpRoute.rules }}
-    {{- with .matches }}
-    - matches:
-      {{- toYaml . | nindent 8 }}
-    {{- end }}
-    {{- with .filters }}
+    - {{- with .matches }}
+      matches:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .filters }}
       filters:
       {{- toYaml . | nindent 8 }}
-    {{- end }}
+      {{- end }}
       backendRefs:
-        - name: {{ $fullName }}
-          port: {{ $svcPort }}
+        - name: {{ include "bentopdf.name" $ }}
+          port: {{ $.Values.service.port }}
           weight: 1
     {{- end }}
 {{- end }}
