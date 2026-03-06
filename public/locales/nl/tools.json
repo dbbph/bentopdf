@@ -92,7 +92,8 @@
   },
   "addWatermark": {
     "name": "Watermerk toevoegen",
-    "subtitle": "Tekst of een afbeelding over de pagina's van je PDF stempelen."
+    "subtitle": "Tekst of een afbeelding over de pagina's van je PDF stempelen.",
+    "applyToAllPages": "Op alle pagina's toepassen"
   },
   "headerFooter": {
     "name": "Koptekst & Voettekst",
@@ -162,7 +163,8 @@
   },
   "removeBlankPages": {
     "name": "Blanco pagina's Verwijderen",
-    "subtitle": "Automatisch blanco pagina's detecteren en verwijderen."
+    "subtitle": "Automatisch blanco pagina's detecteren en verwijderen.",
+    "sensitivityHint": "Hoger = strenger, alleen volledig lege pagina's. Lager = staat pagina's met enige inhoud toe."
   },
   "imageToPdf": {
     "name": "Afbeelding naar PDF",

@@ -92,7 +92,8 @@
   },
   "addWatermark": {
     "name": "Add Watermark",
-    "subtitle": "Stamp text or an image over your PDF pages."
+    "subtitle": "Stamp text or an image over your PDF pages.",
+    "applyToAllPages": "Apply to all pages"
   },
   "headerFooter": {
     "name": "Header & Footer",
@@ -162,7 +163,8 @@
   },
   "removeBlankPages": {
     "name": "Remove Blank Pages",
-    "subtitle": "Automatically detect and delete blank pages."
+    "subtitle": "Automatically detect and delete blank pages.",
+    "sensitivityHint": "Higher = stricter, only purely blank pages. Lower = allows pages with some content."
   },
   "imageToPdf": {
     "name": "Images to PDF",
