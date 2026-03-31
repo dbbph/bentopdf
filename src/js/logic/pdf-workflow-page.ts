@@ -1,12 +1,13 @@
 import { showAlert } from '../ui.js';
-import { tesseractLanguages } from '../config/tesseract-languages.js';
 import { createWorkflowEditor, updateNodeDisplay } from '../workflow/editor';
 import { executeWorkflow } from '../workflow/engine';
+import { getAvailableTesseractLanguageEntries } from '../utils/tesseract-language-availability.js';
 import {
   nodeRegistry,
   getNodesByCategory,
   createNodeByType,
 } from '../workflow/nodes/registry';
+import { isToolDisabled } from '../utils/disabled-tools.js';
 import type { BaseWorkflowNode } from '../workflow/nodes/base-node';
 import type { WorkflowEditor } from '../workflow/editor';
 import {
@@ -447,7 +448,9 @@ function buildToolbox() {
   ];
 
   for (const cat of categoryOrder) {
-    const entries = categorized[cat.key as keyof typeof categorized] ?? [];
+    const entries = (
+      categorized[cat.key as keyof typeof categorized] ?? []
+    ).filter((entry) => !entry.toolPageId || !isToolDisabled(entry.toolPageId));
     if (entries.length === 0) continue;
 
     const section = document.createElement('div');
@@ -1133,9 +1136,7 @@ function showNodeSettings(node: BaseWorkflowNode) {
       { label: 'Top Right', value: 'top-right' },
     ],
     orientation: [
-      { label: 'Vertical', value: 'vertical' },
-      { label: 'Horizontal', value: 'horizontal' },
-      { label: 'Auto', value: 'auto' },
+      { label: 'Auto (Keep Original)', value: 'auto' },
       { label: 'Portrait', value: 'portrait' },
       { label: 'Landscape', value: 'landscape' },
     ],
@@ -1160,6 +1161,23 @@ function showNodeSettings(node: BaseWorkflowNode) {
       { label: 'Letter', value: 'letter' },
       { label: 'Legal', value: 'legal' },
     ],
+    targetSize: [
+      { label: 'A4', value: 'A4' },
+      { label: 'Letter', value: 'Letter' },
+      { label: 'Legal', value: 'Legal' },
+      { label: 'A3', value: 'A3' },
+      { label: 'A5', value: 'A5' },
+      { label: 'Tabloid', value: 'Tabloid' },
+      { label: 'Custom', value: 'Custom' },
+    ],
+    scalingMode: [
+      { label: 'Fit (keep full page visible)', value: 'fit' },
+      { label: 'Fill (cover full target page)', value: 'fill' },
+    ],
+    customUnits: [
+      { label: 'Millimeters (mm)', value: 'mm' },
+      { label: 'Inches (in)', value: 'in' },
+    ],
     numberFormat: [
       { label: 'Simple (1, 2, 3)', value: 'simple' },
       { label: 'Page X of Y', value: 'page_x_of_y' },
@@ -1179,7 +1197,7 @@ function showNodeSettings(node: BaseWorkflowNode) {
       { label: 'High (288 DPI)', value: '3.0' },
       { label: 'Ultra (384 DPI)', value: '4.0' },
     ],
-    language: Object.entries(tesseractLanguages).map(([code, name]) => ({
+    language: getAvailableTesseractLanguageEntries().map(([code, name]) => ({
       label: name,
       value: code,
     })),
@@ -1293,6 +1311,9 @@ function showNodeSettings(node: BaseWorkflowNode) {
     redactMode: {
       text: ['text'],
       area: ['x0', 'y0', 'x1', 'y1'],
+    },
+    targetSize: {
+      Custom: ['customWidth', 'customHeight', 'customUnits'],
     },
   };
 

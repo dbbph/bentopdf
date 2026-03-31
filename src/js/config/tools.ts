@@ -109,6 +109,13 @@ const baseCategories = [
         subtitle: 'Insert page numbers into your document.',
       },
       {
+        href: import.meta.env.BASE_URL + 'add-page-labels.html',
+        name: 'Add Page Labels',
+        icon: 'ph-text-aa',
+        subtitle:
+          'Apply PDF page labels with Roman numerals, prefixes, and custom starts.',
+      },
+      {
         href: import.meta.env.BASE_URL + 'bates-numbering.html',
         name: 'Bates Numbering',
         icon: 'ph-hash',
@@ -439,6 +446,13 @@ const baseCategories = [
         name: 'PDF to TIFF',
         icon: 'ph-file-image',
         subtitle: 'Convert each PDF page into a TIFF image.',
+      },
+      {
+        href: import.meta.env.BASE_URL + 'pdf-to-cbz.html',
+        name: 'PDF to CBZ',
+        icon: 'ph-book-open',
+        subtitle:
+          'Convert a PDF into a CBZ (Comic Book Archive) file for comic readers.',
       },
       {
         href: import.meta.env.BASE_URL + 'pdf-to-svg.html',
@@ -784,6 +798,13 @@ const baseCategories = [
         name: 'Validate Signature',
         icon: 'ph-seal-check',
         subtitle: 'Verify digital signatures and view certificate details.',
+      },
+      {
+        href: import.meta.env.BASE_URL + 'timestamp-pdf.html',
+        name: 'Timestamp PDF',
+        icon: 'ph-clock',
+        subtitle:
+          'Add an RFC 3161 document timestamp using a trusted TSA server.',
       },
     ],
   },

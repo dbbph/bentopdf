@@ -1,7 +1,6 @@
 import Tesseract from 'tesseract.js';
 import { PDFDocument, StandardFonts, rgb, PDFFont } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import * as pdfjsLib from 'pdfjs-dist';
 import { getFontForLanguage } from './font-loader.js';
 import { OcrPage, OcrLine } from '@/types';
 import {
@@ -10,12 +9,14 @@ import {
   calculateSpaceTransform,
 } from './hocr-transform.js';
 import { getPDFDocument } from './helpers.js';
+import { createConfiguredTesseractWorker } from './tesseract-runtime.js';
 
 export interface OcrOptions {
   language: string;
   resolution: number;
   binarize: boolean;
   whitelist: string;
+  embedFullFonts?: boolean;
   onProgress?: (status: string, progress: number) => void;
 }
 
@@ -131,14 +132,23 @@ export async function performOcr(
   pdfBytes: Uint8Array | ArrayBuffer,
   options: OcrOptions
 ): Promise<OcrResult> {
-  const { language, resolution, binarize, whitelist, onProgress } = options;
+  const {
+    language,
+    resolution,
+    binarize,
+    whitelist,
+    embedFullFonts,
+    onProgress,
+  } = options;
   const progress = onProgress || (() => {});
 
-  const worker = await Tesseract.createWorker(language, 1, {
-    logger: function (m: { status: string; progress: number }) {
+  const worker = await createConfiguredTesseractWorker(
+    language,
+    1,
+    function (m: { status: string; progress: number }) {
       progress(m.status, m.progress || 0);
-    },
-  });
+    }
+  );
 
   await worker.setParameters({
     tessjs_create_hocr: '1',
@@ -196,14 +206,16 @@ export async function performOcr(
         getFontForLanguage('eng'),
       ]);
       primaryFont = await newPdfDoc.embedFont(scriptFontBytes, {
-        subset: false,
+        subset: !embedFullFonts,
       });
       latinFont = await newPdfDoc.embedFont(latinFontBytes, {
-        subset: false,
+        subset: !embedFullFonts,
       });
     } else {
       const fontBytes = await getFontForLanguage(primaryLang);
-      primaryFont = await newPdfDoc.embedFont(fontBytes, { subset: false });
+      primaryFont = await newPdfDoc.embedFont(fontBytes, {
+        subset: !embedFullFonts,
+      });
       latinFont = primaryFont;
     }
   } catch (e) {

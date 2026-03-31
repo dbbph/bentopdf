@@ -1,5 +1,5 @@
 import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers.js';
+import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import {
@@ -7,7 +7,9 @@ import {
   cleanupLazyRendering,
 } from '../utils/render-utils.js';
 import { rotatePdfPages } from '../utils/pdf-operations.js';
+import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import * as pdfjsLib from 'pdfjs-dist';
+import { loadPdfDocument } from '../utils/load-pdf-document.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -98,38 +100,40 @@ function createPageWrapper(
 
   const rotateLeftBtn = document.createElement('button');
   rotateLeftBtn.className =
-    'flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded border border-gray-600 text-xs';
+    'flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded border border-gray-600 text-xs cursor-pointer';
   rotateLeftBtn.innerHTML = '<i data-lucide="rotate-ccw" class="w-3 h-3"></i>';
-  rotateLeftBtn.onclick = function (e) {
+  rotateLeftBtn.addEventListener('click', function (e) {
     e.stopPropagation();
+    e.preventDefault();
     pageState.rotations[pageIndex] = pageState.rotations[pageIndex] - 90;
     const wrapper = container.querySelector(
       '.thumbnail-wrapper'
     ) as HTMLElement;
     if (wrapper)
       wrapper.style.transform = `rotate(${pageState.rotations[pageIndex]}deg)`;
-  };
+  });
 
   const rotateRightBtn = document.createElement('button');
   rotateRightBtn.className =
-    'flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded border border-gray-600 text-xs';
+    'flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded border border-gray-600 text-xs cursor-pointer';
   rotateRightBtn.innerHTML = '<i data-lucide="rotate-cw" class="w-3 h-3"></i>';
-  rotateRightBtn.onclick = function (e) {
+  rotateRightBtn.addEventListener('click', function (e) {
     e.stopPropagation();
+    e.preventDefault();
     pageState.rotations[pageIndex] = pageState.rotations[pageIndex] + 90;
     const wrapper = container.querySelector(
       '.thumbnail-wrapper'
     ) as HTMLElement;
     if (wrapper)
       wrapper.style.transform = `rotate(${pageState.rotations[pageIndex]}deg)`;
-  };
+  });
 
   controls.append(rotateLeftBtn, rotateRightBtn);
   container.appendChild(controls);
 
-  // Re-create icons for the new element
+  // Re-create icons scoped to this container only
   setTimeout(function () {
-    createIcons({ icons });
+    createIcons({ icons, nameAttr: 'data-lucide', attrs: {} });
   }, 0);
 
   return container;
@@ -197,16 +201,16 @@ async function updateUI() {
     createIcons({ icons });
 
     try {
+      const result = await loadPdfWithPasswordPrompt(pageState.file);
+      if (!result) {
+        resetState();
+        return;
+      }
       showLoader('Loading PDF...');
-      const arrayBuffer = await pageState.file.arrayBuffer();
 
-      pageState.pdfDoc = await PDFLibDocument.load(arrayBuffer.slice(0), {
-        ignoreEncryption: true,
-        throwOnInvalidObject: false,
-      });
+      pageState.pdfDoc = await loadPdfDocument(result.bytes);
 
-      pageState.pdfJsDoc = await getPDFDocument({ data: arrayBuffer.slice(0) })
-        .promise;
+      pageState.pdfJsDoc = result.pdf;
 
       const pageCount = pageState.pdfDoc.getPageCount();
       pageState.rotations = new Array(pageCount).fill(0);

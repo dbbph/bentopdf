@@ -51,3 +51,8 @@ export * from './scanner-effect-type.ts';
 export * from './adjust-colors-type.ts';
 export * from './bates-numbering-type.ts';
 export * from './page-preview-type.ts';
+export * from './add-page-labels-type.ts';
+export * from './pdf-to-tiff-type.ts';
+export * from './pdf-to-cbz-type.ts';
+export * from './password-prompt-type.ts';
+export * from './config-types.ts';

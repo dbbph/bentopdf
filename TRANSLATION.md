@@ -31,6 +31,8 @@ BentoPDF uses **i18next** for internationalization (i18n). Currently supported l
 - **Indonesian** (`id`)
 - **Chinese** (`zh`)
 - **Traditional Chinese (Taiwan)** (`zh-TW`)
+- **Korean** (`ko`)
+- **Russian** (`ru`)
 
 The app automatically detects the language from the URL path:
 
@@ -118,7 +120,7 @@ Open `public/locales/es/common.json` and translate all the values:
 "inicio": "Inicio"
 ```
 
-Then do the same for `public/locales/fr/tools.json` to translate all tool names and descriptions.
+Then do the same for `public/locales/es/tools.json` to translate all tool names and descriptions.
 
 ### Step 3: Register the Language
 
@@ -599,6 +601,8 @@ Current translation coverage:
 | Indonesian          | `id`    | ✅ Complete    | Community  |
 | Chinese             | `zh`    | ✅ Complete    | Community  |
 | Traditional Chinese | `zh-TW` | ✅ Complete    | Community  |
+| Korean              | `ko`    | ✅ Complete    | Community  |
+| Russian             | `ru`    | ✅ Complete    | Community  |
 | Your Language       | `??`    | 🚧 In Progress | You?       |
 
 ---

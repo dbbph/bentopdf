@@ -1,7 +1,9 @@
 import { defineConfig, Plugin } from 'vitest/config';
 import type { IncomingMessage, ServerResponse } from 'http';
+import http from 'http';
+import https from 'https';
 import type { Connect } from 'vite';
-import basicSsl from '@vitejs/plugin-basic-ssl';
+// import basicSsl from '@vitejs/plugin-basic-ssl';
 import tailwindcss from '@tailwindcss/vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -17,6 +19,7 @@ const SUPPORTED_LANGUAGES = [
   'ar',
   'be',
   'da',
+  'ru',
   'de',
   'es',
   'fr',
@@ -29,6 +32,7 @@ const SUPPORTED_LANGUAGES = [
   'vi',
   'zh',
   'zh-TW',
+  'ko',
 ] as const;
 const LANG_REGEX = new RegExp(
   `^/(${SUPPORTED_LANGUAGES.join('|')})(?:/(.*))?$`
@@ -196,13 +200,89 @@ function createLanguageMiddleware(isDev: boolean): Connect.NextHandleFunction {
   };
 }
 
+function createCorsProxyMiddleware(): Connect.NextHandleFunction {
+  return (
+    req: IncomingMessage,
+    res: ServerResponse,
+    next: Connect.NextFunction
+  ): void => {
+    if (!req.url?.startsWith('/cors-proxy')) return next();
+
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
+
+    const parsed = new URL(req.url, 'http://localhost');
+    const targetUrl = parsed.searchParams.get('url');
+    if (!targetUrl) {
+      res.statusCode = 400;
+      res.end('Missing url parameter');
+      return;
+    }
+
+    console.log(`[CORS Proxy] ${req.method} ${targetUrl}`);
+
+    const bodyChunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => bodyChunks.push(chunk));
+    req.on('end', () => {
+      const body = Buffer.concat(bodyChunks);
+      const target = new URL(targetUrl);
+      const transport = target.protocol === 'https:' ? https : http;
+
+      const headers: Record<string, string> = {};
+      if (req.headers['content-type']) {
+        headers['Content-Type'] = req.headers['content-type'] as string;
+      }
+      if (body.length > 0) {
+        headers['Content-Length'] = String(body.length);
+      }
+
+      const proxyReq = transport.request(
+        targetUrl,
+        { method: req.method || 'GET', headers },
+        (proxyRes) => {
+          console.log(
+            `[CORS Proxy] Response: ${proxyRes.statusCode} from ${targetUrl}`
+          );
+          res.setHeader(
+            'Access-Control-Allow-Origin',
+            req.headers.origin || '*'
+          );
+          res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          res.statusCode = proxyRes.statusCode || 200;
+          proxyRes.pipe(res);
+        }
+      );
+
+      proxyReq.on('error', (err) => {
+        console.error('[CORS Proxy] Error:', err.message);
+        res.statusCode = 502;
+        res.end(`Proxy error: ${err.message}`);
+      });
+
+      if (body.length > 0) {
+        proxyReq.write(body);
+      }
+      proxyReq.end();
+    });
+  };
+}
+
 function languageRouterPlugin(): Plugin {
   return {
     name: 'language-router',
     configureServer(server) {
+      server.middlewares.use(createCorsProxyMiddleware());
       server.middlewares.use(createLanguageMiddleware(true));
     },
     configurePreviewServer(server) {
+      server.middlewares.use(createCorsProxyMiddleware());
       server.middlewares.use(createLanguageMiddleware(false));
     },
   };
@@ -308,7 +388,7 @@ export default defineConfig(() => {
         include: ['buffer', 'stream', 'util', 'zlib', 'process'],
         globals: {
           Buffer: true,
-          global: true,
+          global: false,
           process: true,
         },
       }),
@@ -340,6 +420,12 @@ export default defineConfig(() => {
     define: {
       __SIMPLE_MODE__: JSON.stringify(process.env.SIMPLE_MODE === 'true'),
       __BRAND_NAME__: JSON.stringify(process.env.VITE_BRAND_NAME || ''),
+      __DISABLED_TOOLS__: JSON.stringify(
+        (process.env.DISABLE_TOOLS || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
     },
     resolve: {
       alias: {
@@ -350,7 +436,7 @@ export default defineConfig(() => {
     },
     optimizeDeps: {
       include: ['pdfkit', 'blob-stream'],
-      exclude: ['coherentpdf'],
+      exclude: ['coherentpdf', 'wasm-vips'],
     },
     server: {
       host: true,
@@ -408,6 +494,10 @@ export default defineConfig(() => {
           'delete-pages': resolve(__dirname, 'src/pages/delete-pages.html'),
           'organize-pdf': resolve(__dirname, 'src/pages/organize-pdf.html'),
           'page-numbers': resolve(__dirname, 'src/pages/page-numbers.html'),
+          'add-page-labels': resolve(
+            __dirname,
+            'src/pages/add-page-labels.html'
+          ),
           'add-watermark': resolve(__dirname, 'src/pages/add-watermark.html'),
           'header-footer': resolve(__dirname, 'src/pages/header-footer.html'),
           'invert-colors': resolve(__dirname, 'src/pages/invert-colors.html'),
@@ -502,6 +592,7 @@ export default defineConfig(() => {
           'pdf-to-jpg': resolve(__dirname, 'src/pages/pdf-to-jpg.html'),
           'pdf-to-png': resolve(__dirname, 'src/pages/pdf-to-png.html'),
           'pdf-to-tiff': resolve(__dirname, 'src/pages/pdf-to-tiff.html'),
+          'pdf-to-cbz': resolve(__dirname, 'src/pages/pdf-to-cbz.html'),
           'pdf-to-webp': resolve(__dirname, 'src/pages/pdf-to-webp.html'),
           'pdf-to-docx': resolve(__dirname, 'src/pages/pdf-to-docx.html'),
           'extract-images': resolve(__dirname, 'src/pages/extract-images.html'),
@@ -550,6 +641,7 @@ export default defineConfig(() => {
             __dirname,
             'src/pages/digital-sign-pdf.html'
           ),
+          'timestamp-pdf': resolve(__dirname, 'src/pages/timestamp-pdf.html'),
           'validate-signature-pdf': resolve(
             __dirname,
             'src/pages/validate-signature-pdf.html'
