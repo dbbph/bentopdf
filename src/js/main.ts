@@ -6,13 +6,11 @@ import '@phosphor-icons/web/regular';
 import * as pdfjsLib from 'pdfjs-dist';
 import '../css/styles.css';
 import { formatShortcutDisplay, formatStars } from './utils/helpers.js';
-import { APP_VERSION } from '../version.js';
 import {
   initI18n,
   applyTranslations,
   rewriteLinks,
   injectLanguageSwitcher,
-  createLanguageSwitcher,
   t,
 } from './i18n/index.js';
 import {
@@ -209,6 +207,7 @@ const init = async () => {
     'PDF to JSON': 'tools:pdfToJson',
     'OCR PDF': 'tools:ocrPdf',
     'Alternate & Mix Pages': 'tools:alternateMix',
+    'PDF Overlay': 'tools:pdfOverlay',
     'Organize & Duplicate': 'tools:duplicateOrganize',
     'Add Attachments': 'tools:addAttachments',
     'Extract Attachments': 'tools:extractAttachments',
@@ -501,7 +500,7 @@ const init = async () => {
       }
     });
 
-    dom.toolGrid.addEventListener('click', (e) => {
+    dom.toolGrid.addEventListener('click', () => {
       // All tools now use href and navigate directly - no modal handling needed
     });
   }
@@ -889,7 +888,7 @@ const init = async () => {
     });
   }
 
-  function getToolId(tool: any): string {
+  function getToolId(tool: { id?: string; href?: string }): string {
     if (tool.id) return tool.id;
     if (tool.href) {
       const match = tool.href.match(/\/([^/]+)\.html$/);

@@ -71,7 +71,7 @@ RUN --mount=type=secret,id=VITE_CORS_PROXY_URL \
     npm run build:with-docs
 
 # Production stage
-FROM quay.io/nginx/nginx-unprivileged:stable-alpine-slim
+FROM quay.io/nginx/nginx-unprivileged:alpine-slim
 
 LABEL org.opencontainers.image.source="https://github.com/alam00000/bentopdf"
 LABEL org.opencontainers.image.url="https://github.com/alam00000/bentopdf"
@@ -81,6 +81,7 @@ ARG BASE_URL
 
 # Set this to "true" to disable Nginx listening on IPv6
 ENV DISABLE_IPV6=false
+ENV PORT=8080
 
 USER root
 RUN apk upgrade --no-cache
